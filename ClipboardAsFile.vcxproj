@@ -131,6 +131,7 @@
     <ClInclude Include="ClipboardAsFile.h" />
     <ClInclude Include="ClipboardManager.h" />
     <ClInclude Include="Config.h" />
+    <ClInclude Include="ExplorerDropHelper.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />

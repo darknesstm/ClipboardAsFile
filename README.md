@@ -2,14 +2,14 @@
 
 ## 功能说明
 
-这是一个 Windows 应用程序，可以将剪贴板中的文本内容转换为文件，并将该文件放回剪贴板，方便直接粘贴为文件对象。
+这是一个 Windows 应用程序，可以将剪贴板中的文本内容转换为文件，支持两种模式：放入剪贴板或直接拖放到当前窗口。
 
 ## 主要功能
 
 ### 1. 系统托盘图标
 - 启动后程序以系统托盘图标方式运行，不显示主窗口
 - 右键点击托盘图标可显示菜单：
-  - **转换剪贴板**: 手动触发转换
+  - **转换剪贴板**: 手动触发转换（转换为文件并放入剪贴板）
   - **设置**: 打开设置对话框
   - **关于**: 显示关于信息
   - **退出**: 退出应用程序
@@ -17,7 +17,9 @@
 ### 2. 剪贴板文本转文件
 - 读取剪贴板中的文本内容
 - 将文本保存为临时文件（格式：clipboard_YYYYMMDD_HHMMSS.txt）
-- 将文件对象放入剪贴板，可直接粘贴到文件夹或其他支持文件拖放的位置
+- 支持两种操作模式：
+  - **模式1（快捷键1）**: 将文件对象放入剪贴板，可多次粘贴
+  - **模式2（快捷键2）**: 直接拖放到当前激活窗口，不修改剪贴板
 
 ### 3. 设置功能
 
@@ -35,10 +37,24 @@
   - 自动在注册表添加/删除启动项
 
 #### 快捷键设置
-- **启用全局快捷键**: 设置全局热键快速转换剪贴板
+
+##### 快捷键1 - 转换到剪贴板
+- **功能**: 转换剪贴板文本为文件并放入剪贴板
 - **修饰键**: 支持 Ctrl、Alt、Shift 组合
 - **按键**: 可选择 A-Z 任意字母
-- 默认快捷键：Ctrl + Alt + V
+- **默认快捷键**: Ctrl + Alt + V
+- **使用场景**: 需要将文本转为文件后多次粘贴到不同位置
+
+##### 快捷键2 - 直接拖放到窗口
+- **功能**: 将剪贴板文本直接作为文件拖放到当前激活窗口
+- **修饰键**: 支持 Ctrl、Alt、Shift 组合
+- **按键**: 可选择 A-Z 任意字母
+- **默认快捷键**: Ctrl + Shift + V
+- **特点**: 
+  - 不修改剪贴板内容
+  - 优先使用 Explorer 专用 Drop 方法（IShellView）
+  - 回退到通用 Drop 方法（SHGetIDropTarget）
+- **使用场景**: 快速将文本文件放入当前打开的文件夹或支持拖放的应用
 
 ### 4. 自动清理
 - 程序运行时每小时自动检查并清理超过设定时间的临时文件
@@ -47,27 +63,41 @@
 ## 使用方法
 
 ### 基本使用流程
-1. 运行程序，托盘区域会出现程序图标
+
+#### 方式1：转换到剪贴板（快捷键1）
+1. 复制任意文本到剪贴板
+2. 按下快捷键1（默认：Ctrl + Alt + V）
+3. 文本被转换为文件并放入剪贴板
+4. 可以在任何位置按 Ctrl + V 粘贴该文件（可多次粘贴）
+
+#### 方式2：直接拖放到窗口（快捷键2）
+1. 打开目标文件夹或应用（如资源管理器）
 2. 复制任意文本到剪贴板
-3. 使用以下任一方式触发转换：
-   - 按下全局快捷键（默认：Ctrl + Alt + V）
-   - 右键点击托盘图标，选择"转换剪贴板"
-4. 转换成功后，可以直接在文件夹中粘贴（Ctrl + V），文本将作为 .txt 文件被粘贴
+3. 确保目标窗口处于激活状态
+4. 按下快捷键2（默认：Ctrl + Shift + V）
+5. 文本文件直接出现在目标位置，剪贴板内容不变
+
+#### 方式3：通过托盘菜单
+1. 复制任意文本到剪贴板
+2. 右键点击托盘图标，选择"转换剪贴板"
+3. 转换成功后可直接粘贴文件
 
 ### 配置说明
 1. 右键托盘图标，选择"设置"
-2. 根据需要调整各项设置
-3. 点击"确定"保存设置
+2. 配置两个快捷键的组合键
+3. 调整临时文件目录和清理时间
+4. 点击"确定"保存设置
 
 ## 技术实现
 
 ### 文件结构
 - **ClipboardAsFile.cpp**: 主程序文件，包含窗口处理和消息循环
-- **Config.h**: 配置管理类，负责读写配置文件
+- **Config.h**: 配置管理类，负责读写配置文件（支持两个快捷键）
 - **ClipboardManager.h**: 剪贴板管理类，处理文本转文件和清理操作
+- **ExplorerDropHelper.h**: Explorer 专用 Drop 帮助类，通过 IShellView 实现
 - **AutoStartup.h**: 开机启动管理类，处理注册表操作
 - **Resource.h**: 资源定义文件
-- **ClipboardAsFile.rc**: 资源文件（需手动添加设置对话框和托盘菜单）
+- **ClipboardAsFile.rc**: 资源文件
 
 ### 配置文件位置
 - 配置保存在：`%LOCALAPPDATA%\ClipboardAsFile\config.ini`
@@ -75,75 +105,26 @@
   - TempPath: 临时文件目录
   - DeleteAfterHours: 自动删除时间
   - AutoStartup: 开机启动开关
-  - HotkeyEnabled: 快捷键启用状态
-  - HotkeyMod: 快捷键修饰符
-  - HotkeyVk: 快捷键虚拟键码
+  - Hotkey1Enabled: 快捷键1启用状态
+  - Hotkey1Mod: 快捷键1修饰符
+  - Hotkey1Vk: 快捷键1虚拟键码
+  - Hotkey2Enabled: 快捷键2启用状态
+  - Hotkey2Mod: 快捷键2修饰符
+  - Hotkey2Vk: 快捷键2虚拟键码
+
+### Drop 实现策略
+
+#### 快捷键2的实现优先级：
+1. **Explorer 专用方法**: 通过 `IShellWindows` 枚举 Shell 窗口，获取 `IShellBrowser`，然后查询 `IShellView` 和其 `IDropTarget` 接口，直接投放文件到 Explorer 视图
+2. **通用方法**: 使用 `SHGetIDropTarget` 获取目标窗口的 `IDropTarget` 接口并投放
+3. **失败处理**: 如果都失败，不做任何操作（不修改剪贴板，保持用户数据不变）
 
 ### 注意事项
 
 #### 资源文件手动修改
-由于 .rc 文件无法通过工具直接编辑，需要手动在 Visual Studio 中打开 `ClipboardAsFile.rc` 文件，添加以下内容：
+由于 .rc 文件无法通过工具直接编辑，需要手动在 Visual Studio 中更新设置对话框。
 
-1. **添加托盘菜单**（在现有菜单定义后）：
-```rc
-// Tray menu
-200 MENU
-BEGIN
-    POPUP ""
-    BEGIN
-        MENUITEM "转换剪贴板(&C)",          ID_TRAY_CONVERT
-        MENUITEM SEPARATOR
-        MENUITEM "设置(&S)...",             ID_TRAY_SETTINGS
-        MENUITEM "关于(&A)...",             ID_TRAY_ABOUT
-        MENUITEM SEPARATOR
-        MENUITEM "退出(&X)",                ID_TRAY_EXIT
-    END
-END
-```
-
-2. **添加设置对话框**（在 IDD_ABOUTBOX 定义后）：
-```rc
-IDD_SETTINGS DIALOGEX 0, 0, 320, 180
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "设置"
-FONT 9, "MS Shell Dlg"
-BEGIN
-    GROUPBOX        "临时文件设置",IDC_STATIC,7,7,306,60
-    LTEXT           "临时文件目录:",IDC_STATIC,14,22,60,8
-    EDITTEXT        IDC_TEMP_PATH,80,20,180,14,ES_AUTOHSCROLL
-    PUSHBUTTON      "浏览...",IDC_BROWSE,265,20,40,14
-    LTEXT           "自动删除时间(小时):",IDC_STATIC,14,42,100,8
-    EDITTEXT        IDC_DELETE_AFTER,120,40,40,14,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "0表示不自动删除",IDC_STATIC,165,42,80,8
-    
-    GROUPBOX        "启动设置",IDC_STATIC,7,72,306,30
-    CONTROL         "随Windows启动",IDC_AUTO_STARTUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,86,120,10
-    
-    GROUPBOX        "快捷键设置",IDC_STATIC,7,107,306,43
-    CONTROL         "启用全局快捷键",IDC_HOTKEY_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,121,80,10
-    CONTROL         "Ctrl",IDC_HOTKEY_CTRL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,100,121,35,10
-    CONTROL         "Alt",IDC_HOTKEY_ALT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,140,121,30,10
-    CONTROL         "Shift",IDC_HOTKEY_SHIFT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,175,121,35,10
-    COMBOBOX        IDC_HOTKEY_KEY,215,119,50,100,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "按下快捷键转换剪贴板文本为文件",IDC_STATIC,14,134,150,8
-    
-    DEFPUSHBUTTON   "确定",IDOK,209,159,50,14
-    PUSHBUTTON      "取消",IDCANCEL,263,159,50,14
-END
-```
-
-3. **添加 DESIGNINFO**（在现有 DESIGNINFO 的 IDD_ABOUTBOX 部分后）：
-```rc
-    IDD_SETTINGS, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 313
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 173
-    END
-```
-
-完成以上修改后，重新编译项目即可。
+详细说明请参考：`RC文件更新说明-双快捷键.md`
 
 ## 系统要求
 - Windows 7 或更高版本

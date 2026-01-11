@@ -36,6 +36,9 @@
     <ClInclude Include="AutoStartup.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ExplorerDropHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClipboardAsFile.cpp">

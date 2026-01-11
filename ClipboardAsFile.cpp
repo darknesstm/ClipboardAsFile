@@ -6,6 +6,7 @@
 #include "Config.h"
 #include "ClipboardManager.h"
 #include "AutoStartup.h"
+#include "ExplorerDropHelper.h"
 #include <shellapi.h>
 #include <shlobj.h>
 #include <string>
@@ -19,7 +20,8 @@
 #define MAX_LOADSTRING 100
 #define WM_TRAYICON (WM_USER + 1)
 #define TIMER_CLEANUP 1
-#define HOTKEY_ID 1
+#define HOTKEY_ID_1 1
+#define HOTKEY_ID_2 2
 
 // SHGetIDropTarget may not be available in some SDK headers; declare it here
 extern "C" HRESULT WINAPI SHGetIDropTarget(HWND hwnd, IDropTarget **ppdt);
@@ -41,9 +43,10 @@ INT_PTR CALLBACK    Settings(HWND, UINT, WPARAM, LPARAM);
 void                AddTrayIcon(HWND hWnd);
 void                RemoveTrayIcon();
 void                ShowTrayMenu(HWND hWnd);
-void                ConvertClipboard(bool autoPaste = false);
-void                RegisterGlobalHotkey(HWND hWnd);
-void                UnregisterGlobalHotkey(HWND hWnd);
+void                ConvertToClipboard();
+void                DropToActiveWindow();
+void                RegisterGlobalHotkeys(HWND hWnd);
+void                UnregisterGlobalHotkeys(HWND hWnd);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -134,7 +137,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    AddTrayIcon(hWnd);
 
    // 注册全局热键
-   RegisterGlobalHotkey(hWnd);
+   RegisterGlobalHotkeys(hWnd);
 
    // 启动清理定时器（每小时检查一次）
    SetTimer(hWnd, TIMER_CLEANUP, 3600000, NULL);
@@ -168,7 +171,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
             case ID_TRAY_CONVERT:
             case IDM_CONVERT:
-                ConvertClipboard(false);
+                ConvertToClipboard();
                 break;
             case ID_TRAY_SETTINGS:
             case IDM_SETTINGS:
@@ -189,9 +192,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_HOTKEY:
-        if (wParam == HOTKEY_ID)
+        if (wParam == HOTKEY_ID_1)
         {
-            ConvertClipboard(true);
+            ConvertToClipboard();
+        }
+        else if (wParam == HOTKEY_ID_2)
+        {
+            DropToActiveWindow();
         }
         break;
 
@@ -204,7 +211,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
         KillTimer(hWnd, TIMER_CLEANUP);
-        UnregisterGlobalHotkey(hWnd);
+        UnregisterGlobalHotkeys(hWnd);
         RemoveTrayIcon();
         PostQuitMessage(0);
         break;
@@ -249,23 +256,40 @@ INT_PTR CALLBACK Settings(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             CheckDlgButton(hDlg, IDC_AUTO_STARTUP, 
                 AutoStartup::IsAutoStartupEnabled(L"ClipboardAsFile") ? BST_CHECKED : BST_UNCHECKED);
             
-            CheckDlgButton(hDlg, IDC_HOTKEY_ENABLED, 
-                g_config.GetHotkeyEnabled() ? BST_CHECKED : BST_UNCHECKED);
+            // Hotkey 1
+            CheckDlgButton(hDlg, IDC_HOTKEY1_ENABLED, 
+                g_config.GetHotkey1Enabled() ? BST_CHECKED : BST_UNCHECKED);
             
-            UINT mod = g_config.GetHotkeyMod();
-            CheckDlgButton(hDlg, IDC_HOTKEY_CTRL, (mod & MOD_CONTROL) ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hDlg, IDC_HOTKEY_ALT, (mod & MOD_ALT) ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hDlg, IDC_HOTKEY_SHIFT, (mod & MOD_SHIFT) ? BST_CHECKED : BST_UNCHECKED);
+            UINT mod1 = g_config.GetHotkey1Mod();
+            CheckDlgButton(hDlg, IDC_HOTKEY1_CTRL, (mod1 & MOD_CONTROL) ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_HOTKEY1_ALT, (mod1 & MOD_ALT) ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_HOTKEY1_SHIFT, (mod1 & MOD_SHIFT) ? BST_CHECKED : BST_UNCHECKED);
             
-            HWND hCombo = GetDlgItem(hDlg, IDC_HOTKEY_KEY);
+            HWND hCombo1 = GetDlgItem(hDlg, IDC_HOTKEY1_KEY);
             const WCHAR* keys[] = {L"A", L"B", L"C", L"D", L"E", L"F", L"G", L"H", L"I", L"J", 
                                    L"K", L"L", L"M", L"N", L"O", L"P", L"Q", L"R", L"S", L"T", 
                                    L"U", L"V", L"W", L"X", L"Y", L"Z"};
             for (int i = 0; i < 26; i++)
             {
-                SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)keys[i]);
+                SendMessageW(hCombo1, CB_ADDSTRING, 0, (LPARAM)keys[i]);
             }
-            SendMessageW(hCombo, CB_SETCURSEL, g_config.GetHotkeyVk() - 'A', 0);
+            SendMessageW(hCombo1, CB_SETCURSEL, g_config.GetHotkey1Vk() - 'A', 0);
+            
+            // Hotkey 2
+            CheckDlgButton(hDlg, IDC_HOTKEY2_ENABLED, 
+                g_config.GetHotkey2Enabled() ? BST_CHECKED : BST_UNCHECKED);
+            
+            UINT mod2 = g_config.GetHotkey2Mod();
+            CheckDlgButton(hDlg, IDC_HOTKEY2_CTRL, (mod2 & MOD_CONTROL) ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_HOTKEY2_ALT, (mod2 & MOD_ALT) ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_HOTKEY2_SHIFT, (mod2 & MOD_SHIFT) ? BST_CHECKED : BST_UNCHECKED);
+            
+            HWND hCombo2 = GetDlgItem(hDlg, IDC_HOTKEY2_KEY);
+            for (int i = 0; i < 26; i++)
+            {
+                SendMessageW(hCombo2, CB_ADDSTRING, 0, (LPARAM)keys[i]);
+            }
+            SendMessageW(hCombo2, CB_SETCURSEL, g_config.GetHotkey2Vk() - 'A', 0);
         }
         return (INT_PTR)TRUE;
 
@@ -312,29 +336,50 @@ INT_PTR CALLBACK Settings(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     AutoStartup::SetAutoStartup(autoStartup, L"ClipboardAsFile", 
                         AutoStartup::GetExecutablePath());
                     
-                    bool hotkeyEnabled = IsDlgButtonChecked(hDlg, IDC_HOTKEY_ENABLED) == BST_CHECKED;
-                    g_config.SetHotkeyEnabled(hotkeyEnabled);
+                    // Hotkey 1
+                    bool hotkey1Enabled = IsDlgButtonChecked(hDlg, IDC_HOTKEY1_ENABLED) == BST_CHECKED;
+                    g_config.SetHotkey1Enabled(hotkey1Enabled);
                     
-                    UINT mod = 0;
-                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY_CTRL) == BST_CHECKED)
-                        mod |= MOD_CONTROL;
-                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY_ALT) == BST_CHECKED)
-                        mod |= MOD_ALT;
-                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY_SHIFT) == BST_CHECKED)
-                        mod |= MOD_SHIFT;
-                    g_config.SetHotkeyMod(mod);
+                    UINT mod1 = 0;
+                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY1_CTRL) == BST_CHECKED)
+                        mod1 |= MOD_CONTROL;
+                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY1_ALT) == BST_CHECKED)
+                        mod1 |= MOD_ALT;
+                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY1_SHIFT) == BST_CHECKED)
+                        mod1 |= MOD_SHIFT;
+                    g_config.SetHotkey1Mod(mod1);
                     
-                    HWND hCombo = GetDlgItem(hDlg, IDC_HOTKEY_KEY);
-                    int sel = (int)SendMessageW(hCombo, CB_GETCURSEL, 0, 0);
-                    if (sel >= 0)
+                    HWND hCombo1 = GetDlgItem(hDlg, IDC_HOTKEY1_KEY);
+                    int sel1 = (int)SendMessageW(hCombo1, CB_GETCURSEL, 0, 0);
+                    if (sel1 >= 0)
                     {
-                        g_config.SetHotkeyVk('A' + sel);
+                        g_config.SetHotkey1Vk('A' + sel1);
+                    }
+                    
+                    // Hotkey 2
+                    bool hotkey2Enabled = IsDlgButtonChecked(hDlg, IDC_HOTKEY2_ENABLED) == BST_CHECKED;
+                    g_config.SetHotkey2Enabled(hotkey2Enabled);
+                    
+                    UINT mod2 = 0;
+                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY2_CTRL) == BST_CHECKED)
+                        mod2 |= MOD_CONTROL;
+                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY2_ALT) == BST_CHECKED)
+                        mod2 |= MOD_ALT;
+                    if (IsDlgButtonChecked(hDlg, IDC_HOTKEY2_SHIFT) == BST_CHECKED)
+                        mod2 |= MOD_SHIFT;
+                    g_config.SetHotkey2Mod(mod2);
+                    
+                    HWND hCombo2 = GetDlgItem(hDlg, IDC_HOTKEY2_KEY);
+                    int sel2 = (int)SendMessageW(hCombo2, CB_GETCURSEL, 0, 0);
+                    if (sel2 >= 0)
+                    {
+                        g_config.SetHotkey2Vk('A' + sel2);
                     }
                     
                     g_config.Save();
                     
-                    UnregisterGlobalHotkey(g_hWnd);
-                    RegisterGlobalHotkey(g_hWnd);
+                    UnregisterGlobalHotkeys(g_hWnd);
+                    RegisterGlobalHotkeys(g_hWnd);
                     
                     EndDialog(hDlg, LOWORD(wParam));
                     return (INT_PTR)TRUE;
@@ -390,26 +435,24 @@ void ShowTrayMenu(HWND hWnd)
     }
 }
 
-void ConvertClipboard(bool autoPaste)
+void ConvertToClipboard()
 {
-    if (!autoPaste)
+    if (ClipboardManager::ConvertTextToFile(g_config.GetTempPath()))
     {
-        if (ClipboardManager::ConvertTextToFile(g_config.GetTempPath()))
-        {
-            MessageBoxW(NULL, L"剪贴板文本已转换为文件！", L"成功", MB_OK | MB_ICONINFORMATION);
-        }
-        else
-        {
-            MessageBoxW(NULL, L"转换失败！请确保剪贴板包含文本内容。", L"错误", MB_OK | MB_ICONERROR);
-        }
-        return;
+        MessageBoxW(NULL, L"剪贴板文本已转换为文件！", L"成功", MB_OK | MB_ICONINFORMATION);
     }
+    else
+    {
+        MessageBoxW(NULL, L"转换失败！请确保剪贴板包含文本内容。", L"错误", MB_OK | MB_ICONERROR);
+    }
+}
 
-    // autoPaste == true: create file from clipboard text without modifying the clipboard, then drop it
+void DropToActiveWindow()
+{
+    // Create file from clipboard text without modifying clipboard, then drop to active window
     std::wstring filePath = ClipboardManager::CreateFileFromClipboardTextToPath(g_config.GetTempPath());
     if (filePath.empty())
     {
-        // nothing to do
         return;
     }
 
@@ -424,37 +467,46 @@ void ConvertClipboard(bool autoPaste)
     hr = ClipboardManager::CreateDataObjectFromFile(filePath, &pDataObj);
     if (SUCCEEDED(hr) && pDataObj)
     {
-        IDropTarget* pDropTarget = NULL;
+        bool dropped = false;
 
-        typedef HRESULT (WINAPI *PFNSHGetIDropTarget)(HWND, IDropTarget**);
-        HMODULE hShell = GetModuleHandleW(L"shell32.dll");
-        PFNSHGetIDropTarget pfn = NULL;
-        if (hShell)
+        // Strategy 1: Try Explorer-specific drop using IShellView
+        if (ExplorerDropHelper::DropToExplorer(hwndTarget, pDataObj))
         {
-            pfn = (PFNSHGetIDropTarget)GetProcAddress(hShell, "SHGetIDropTarget");
+            dropped = true;
         }
-
-        if (pfn && SUCCEEDED(pfn(hwndTarget, &pDropTarget)) && pDropTarget)
+        else
         {
-            POINT ptScreen;
-            GetCursorPos(&ptScreen);
-            POINT ptClient = ptScreen;
-            ScreenToClient(hwndTarget, &ptClient);
+            // Strategy 2: Try generic drop using SHGetIDropTarget
+            IDropTarget* pDropTarget = NULL;
 
-            POINTL ptl = { ptClient.x, ptClient.y };
-            DWORD dwEffect = DROPEFFECT_COPY;
+            typedef HRESULT (WINAPI *PFNSHGetIDropTarget)(HWND, IDropTarget**);
+            HMODULE hShell = GetModuleHandleW(L"shell32.dll");
+            PFNSHGetIDropTarget pfn = NULL;
+            if (hShell)
+            {
+                pfn = (PFNSHGetIDropTarget)GetProcAddress(hShell, "SHGetIDropTarget");
+            }
 
-            pDropTarget->DragEnter(pDataObj, MK_LBUTTON, ptl, &dwEffect);
-            pDropTarget->Drop(pDataObj, MK_LBUTTON, ptl, &dwEffect);
-            pDropTarget->DragLeave();
+            if (pfn && SUCCEEDED(pfn(hwndTarget, &pDropTarget)) && pDropTarget)
+            {
+                POINT ptScreen;
+                GetCursorPos(&ptScreen);
+                POINT ptClient = ptScreen;
+                ScreenToClient(hwndTarget, &ptClient);
 
-            pDropTarget->Release();
-            pDropTarget = NULL;
+                POINTL ptl = { ptClient.x, ptClient.y };
+                DWORD dwEffect = DROPEFFECT_COPY;
+
+                pDropTarget->DragEnter(pDataObj, MK_LBUTTON, ptl, &dwEffect);
+                pDropTarget->Drop(pDataObj, MK_LBUTTON, ptl, &dwEffect);
+                pDropTarget->DragLeave();
+
+                pDropTarget->Release();
+                dropped = true;
+            }
         }
-        // If no drop target found, do nothing to avoid changing clipboard
 
         pDataObj->Release();
-        pDataObj = NULL;
     }
 
     if (comInited)
@@ -463,15 +515,20 @@ void ConvertClipboard(bool autoPaste)
     }
 }
 
-void RegisterGlobalHotkey(HWND hWnd)
+void RegisterGlobalHotkeys(HWND hWnd)
 {
-    if (g_config.GetHotkeyEnabled())
+    if (g_config.GetHotkey1Enabled())
     {
-        RegisterHotKey(hWnd, HOTKEY_ID, g_config.GetHotkeyMod(), g_config.GetHotkeyVk());
+        RegisterHotKey(hWnd, HOTKEY_ID_1, g_config.GetHotkey1Mod(), g_config.GetHotkey1Vk());
+    }
+    if (g_config.GetHotkey2Enabled())
+    {
+        RegisterHotKey(hWnd, HOTKEY_ID_2, g_config.GetHotkey2Mod(), g_config.GetHotkey2Vk());
     }
 }
 
-void UnregisterGlobalHotkey(HWND hWnd)
+void UnregisterGlobalHotkeys(HWND hWnd)
 {
-    UnregisterHotKey(hWnd, HOTKEY_ID);
+    UnregisterHotKey(hWnd, HOTKEY_ID_1);
+    UnregisterHotKey(hWnd, HOTKEY_ID_2);
 }
