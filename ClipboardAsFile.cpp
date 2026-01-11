@@ -43,6 +43,7 @@ INT_PTR CALLBACK    Settings(HWND, UINT, WPARAM, LPARAM);
 void                AddTrayIcon(HWND hWnd);
 void                RemoveTrayIcon();
 void                ShowTrayMenu(HWND hWnd);
+void                ShowBalloonNotification(const WCHAR* title, const WCHAR* message, DWORD iconType);
 void                ConvertToClipboard();
 void                DropToActiveWindow();
 void                RegisterGlobalHotkeys(HWND hWnd);
@@ -407,6 +408,9 @@ void AddTrayIcon(HWND hWnd)
     wcscpy_s(nid.szTip, L"ClipboardAsFile - 剪贴板转文件");
     
     Shell_NotifyIconW(NIM_ADD, &nid);
+    
+    // Enable balloon notifications by updating flags
+    nid.uFlags |= NIF_INFO;
 }
 
 void RemoveTrayIcon()
@@ -435,15 +439,25 @@ void ShowTrayMenu(HWND hWnd)
     }
 }
 
+void ShowBalloonNotification(const WCHAR* title, const WCHAR* message, DWORD iconType)
+{
+    nid.uFlags = NIF_INFO;
+    nid.dwInfoFlags = iconType;
+    wcscpy_s(nid.szInfoTitle, title);
+    wcscpy_s(nid.szInfo, message);
+    
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
 void ConvertToClipboard()
 {
     if (ClipboardManager::ConvertTextToFile(g_config.GetTempPath()))
     {
-        MessageBoxW(NULL, L"剪贴板文本已转换为文件！", L"成功", MB_OK | MB_ICONINFORMATION);
+        ShowBalloonNotification(L"转换成功", L"剪贴板文本已转换为文件", NIIF_INFO);
     }
     else
     {
-        MessageBoxW(NULL, L"转换失败！请确保剪贴板包含文本内容。", L"错误", MB_OK | MB_ICONERROR);
+        ShowBalloonNotification(L"转换失败", L"请确保剪贴板包含文本内容", NIIF_ERROR);
     }
 }
 
