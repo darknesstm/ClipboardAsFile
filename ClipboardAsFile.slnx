@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ClipboardAsFile.vcxproj" Id="d384244d-4cb1-404b-8880-6380d33606a5" />
+</Solution>
