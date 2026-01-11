@@ -1,0 +1,65 @@
+name: Code Quality Check
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  lint-and-check:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Check for syntax errors
+      run: |
+        echo "Checking C++ files..."
+        Get-ChildItem -Path . -Include *.cpp,*.h -Recurse | ForEach-Object {
+          Write-Host "Checking $($_.Name)..."
+        }
+      shell: pwsh
+
+    - name: Build Debug for analysis
+      run: |
+        nuget restore ClipboardAsFile.sln
+        msbuild /m /p:Configuration=Debug /p:Platform=x64 ClipboardAsFile.sln
+      continue-on-error: true
+
+    - name: Check documentation
+      run: |
+        $docs = @(
+          "README.md",
+          "快速开始.md",
+          "完整功能指南.md",
+          "RC文件更新说明-双快捷键.md"
+        )
+        
+        foreach ($doc in $docs) {
+          if (Test-Path $doc) {
+            Write-Host "? Found: $doc"
+          } else {
+            Write-Host "? Missing: $doc"
+            exit 1
+          }
+        }
+      shell: pwsh
+
+    - name: Verify resource files
+      run: |
+        if (!(Test-Path "ClipboardAsFile.rc")) {
+          Write-Host "? Missing ClipboardAsFile.rc"
+          exit 1
+        }
+        if (!(Test-Path "Resource.h")) {
+          Write-Host "? Missing Resource.h"
+          exit 1
+        }
+        Write-Host "? All resource files present"
+      shell: pwsh

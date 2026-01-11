@@ -1,0 +1,127 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    branches: [ master, main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+env:
+  SOLUTION_FILE_PATH: ClipboardAsFile.sln
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build-matrix:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [x64, Win32]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Restore NuGet packages
+      run: nuget restore ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build ${{ matrix.platform }}
+      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform=${{ matrix.platform }} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Prepare Release Files
+      shell: pwsh
+      run: |
+        $platform = "${{ matrix.platform }}"
+        $outputDir = if ($platform -eq "Win32") { "Release" } else { "$platform\Release" }
+        
+        New-Item -ItemType Directory -Force -Path "release-$platform"
+        Copy-Item "$outputDir\ClipboardAsFile.exe" "release-$platform\"
+        Copy-Item "README.md" "release-$platform\"
+        Copy-Item "快速开始.md" "release-$platform\"
+        Copy-Item "完整功能指南.md" "release-$platform\"
+        Copy-Item "RC文件更新说明-双快捷键.md" "release-$platform\"
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ClipboardAsFile-${{ matrix.platform }}-${{ github.sha }}
+        path: release-${{ matrix.platform }}/
+        retention-days: 30
+
+  create-release:
+    needs: build-matrix
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download x64 Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: ClipboardAsFile-x64-${{ github.sha }}
+        path: dist/x64
+
+    - name: Download Win32 Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: ClipboardAsFile-Win32-${{ github.sha }}
+        path: dist/Win32
+
+    - name: Create Release Archives
+      shell: pwsh
+      run: |
+        $version = "${{ github.ref_name }}"
+        
+        # Create x64 archive
+        cd dist/x64
+        7z a "../../ClipboardAsFile-${version}-x64.zip" *
+        cd ../..
+        
+        # Create Win32 archive
+        cd dist/Win32
+        7z a "../../ClipboardAsFile-${version}-Win32.zip" *
+        cd ../..
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ClipboardAsFile-${{ github.ref_name }}-x64.zip
+          ClipboardAsFile-${{ github.ref_name }}-Win32.zip
+        draft: false
+        prerelease: false
+        body: |
+          ## ClipboardAsFile ${{ github.ref_name }}
+          
+          ### 下载说明
+          - **x64 版本**: 适用于 64 位 Windows 系统（推荐）
+          - **Win32 版本**: 适用于 32 位 Windows 系统
+          
+          ### 主要功能
+          - ? 双快捷键支持（Ctrl+Alt+V 和 Ctrl+Shift+V）
+          - ?? 气泡通知，不打断工作
+          - ?? 智能拖放（优先 Explorer 专用 Drop）
+          - ?? 自动清理临时文件
+          - ?? 高度可配置
+          
+          ### 使用方法
+          1. 解压下载的 ZIP 文件
+          2. 运行 ClipboardAsFile.exe
+          3. 程序自动最小化到系统托盘
+          4. 查看 README.md 或 快速开始.md 了解详细使用方法
+          
+          ### 系统要求
+          - Windows 7 或更高版本
+          - Visual C++ Runtime（通常已预装）
+          
+          详细更新日志请查看下方 Release Notes。
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -148,8 +148,16 @@
     <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".github\workflows\build-release.yml" />
+    <None Include=".github\workflows\build.yml" />
+    <None Include=".github\workflows\code-quality.yml" />
+    <None Include="GitHub-Actions使用说明.md" />
+    <None Include="GitHub-Actions配置完成.md" />
+    <None Include="GitHub-Badges配置.md" />
     <None Include="README.md" />
+    <None Include="README更新建议.md" />
     <None Include="完整功能指南.md" />
+    <None Include="快速发布指南.md" />
     <None Include="快速开始.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
