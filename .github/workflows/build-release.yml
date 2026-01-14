@@ -15,7 +15,7 @@ env:
 
 jobs:
   build-matrix:
-    runs-on: windows-latest
+    runs-on: windows-2019
     strategy:
       matrix:
         platform: [x64, Win32]

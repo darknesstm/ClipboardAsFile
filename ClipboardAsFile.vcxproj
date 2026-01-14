@@ -158,8 +158,8 @@
     <None Include="README.md" />
     <None Include="README更新建议.md" />
     <None Include="完整功能指南.md" />
-    <None Include="快速发布指南.md" />
-    <None Include="快速开始.md" />
+    <None Include="快速发布指�?md" />
+    <None Include="快速开�?md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
