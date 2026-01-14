@@ -42,7 +42,7 @@ jobs:
         copy 完整功能指南.md release\
 
     - name: Upload Build Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ClipboardAsFile-${{ github.sha }}
         path: release/
