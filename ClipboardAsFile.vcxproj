@@ -151,6 +151,7 @@
     <None Include=".github\workflows\build-release.yml" />
     <None Include=".github\workflows\build.yml" />
     <None Include=".github\workflows\code-quality.yml" />
+    <None Include="ClipboardAsFile.sln" />
     <None Include="GitHub-Actions使用说明.md" />
     <None Include="GitHub-Actions配置完成.md" />
     <None Include="GitHub-Badges配置.md" />

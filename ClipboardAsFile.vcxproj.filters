@@ -73,5 +73,6 @@
     <None Include="GitHub-Badges配置.md" />
     <None Include="README更新建议.md" />
     <None Include="GitHub-Actions配置完成.md" />
+    <None Include="ClipboardAsFile.sln" />
   </ItemGroup>
 </Project>
