@@ -71,7 +71,7 @@
     <None Include="GitHub-Actions使用说明.md" />
     <None Include="快速发布指南.md" />
     <None Include="GitHub-Badges配置.md" />
-    <None Include="GitHub-Actions配置完成.md" />
     <None Include="README更新建议.md" />
+    <None Include="GitHub-Actions配置完成.md" />
   </ItemGroup>
 </Project>
